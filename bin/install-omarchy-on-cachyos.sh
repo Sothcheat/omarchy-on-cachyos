@@ -87,8 +87,6 @@ sed -i '/linux-cachyos/ ! s/pacman -Q linux/pacman -Q linux-cachyos/' bin/omarch
 sed -i '/run_logged \$OMARCHY_INSTALL\/preflight\/pacman\.sh/d' install/preflight/all.sh
 
 # Replace nvidia.sh with custom CachyOS 580xx Driver Logic
-cp ../bin/nvidia.sh install/config/hardware/nvidia.sh
-chmod +x install/config/hardware/nvidia.sh
 
 # Remove plymouth.sh source line from install.sh
 sed -i '/run_logged \$OMARCHY_INSTALL\/login\/plymouth\.sh/d' install/login/all.sh
