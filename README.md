@@ -50,6 +50,8 @@ The philosophy is to change as little as possible of either system. Where CachyO
 
 9. Boot splash: The CachyOS Plymouth theme is kept. Run `omarchy-refresh-plymouth` to switch to Omarchy's.
 
+10. Qt 6.12: CachyOS ships Qt 6.12 before Omarchy's stable channel does. Qt 6.12 adds its own `Color` type, which hides the palette the Omarchy shell uses, so the shell runs but shows no bar and no launcher (the journal shows `Cannot read property 'background' of undefined`). `bin/fix-omarchy-shell-qt612.sh` applies Omarchy's upstream fix (commit b83d3df0) to the installed shell, and a pacman hook re-applies it after each `omarchy` upgrade until a release includes it. Once one does, the script finds nothing to change.
+
 ## 4. Pre-Requisites
 
 IMPORTANT: This script does not install CachyOS. You must do that separately (and first). For information on installing CachyOS, please refer to https://www.cachyos.org. Use these choices:
@@ -115,6 +117,7 @@ cd omarchy-on-cachyos/bin
 - Update with `omarchy update`. It updates CachyOS and Omarchy packages together and runs Omarchy's migrations.
 - Do NOT run `omarchy-channel-set` or `omarchy-reinstall-pkgs`. Both run `omarchy-refresh-pacman`, which overwrites `/etc/pacman.conf` with Omarchy's and removes the CachyOS repositories (it leaves a backup at `/etc/pacman.conf.bak`).
 - If something fails, the full output is in `~/omarchy-on-cachyos-install.log`. The script is safe to re-run.
+- Installed with an earlier version of this script and the bar and launcher are missing? Pull this repo and run `bin/fix-omarchy-shell-qt612.sh --install-hook`, then `omarchy-restart-shell`.
 
 ### Already on Omarchy 3.x from the old version of this script?
 

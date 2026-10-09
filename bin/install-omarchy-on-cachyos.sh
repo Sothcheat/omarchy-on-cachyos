@@ -271,6 +271,12 @@ for pkg in "${CORE_PACKAGES[@]}" "${BASE_PACKAGES[@]}" "${AUDIO_PACKAGES[@]}"; d
 done
 sudo pacman -D --asexplicit "${EXPLICIT[@]}" > /dev/null
 
+# CachyOS ships Qt 6.12 ahead of Omarchy's stable channel, and Qt 6.12's own
+# `Color` type shadows the shell's palette singleton: the shell runs but draws
+# no bar and no launcher. Apply upstream's fix to the installed shell, and
+# re-apply it from a pacman hook until an Omarchy release includes it.
+"$SCRIPT_DIR/fix-omarchy-shell-qt612.sh" --install-hook
+
 # --- system setup ---------------------------------------------------------------
 # omarchy-apply-system reads its step scripts from $OMARCHY_INSTALL, which
 # defaults to the packaged /usr/share/omarchy/install. Point it at a patched
