@@ -2,10 +2,18 @@
 set -e
 
 # --- NVIDIA Configuration for Omarchy on CachyOS ---
-# Philosophy: detect and use whatever NVIDIA driver CachyOS has installed.
-# Only install a driver if none is present. Never downgrade or force-replace.
+# Replaces Omarchy's install/hardware/nvidia.sh. Runs as root, inside
+# omarchy-apply-system.
+#
+# Philosophy: use whatever NVIDIA driver CachyOS's chwd installed. Upstream
+# installs nvidia-open-dkms or nvidia-580xx-dkms itself, but on CachyOS chwd
+# has already installed the prebuilt module matching linux-cachyos, and a
+# second, DKMS-built driver conflicts with it. Only install a driver when none
+# is present, and then through chwd so it still matches the CachyOS kernel.
+#
+# Session environment variables (LIBVA_DRIVER_NAME, NVD_BACKEND, ...) are not
+# set here: Omarchy 4.x sets them per GPU generation in default/hypr/nvidia.lua.
 
-# Exit early if no NVIDIA GPU is present
 if ! lspci -nn -d 10de: | grep -qE "VGA|3D"; then
     echo "[*] No NVIDIA GPU found. Skipping."
     exit 0
@@ -14,38 +22,34 @@ fi
 GPU_NAME=$(lspci -d 10de: | grep -E "VGA|3D" | head -n1 | sed 's/.*: //')
 echo "[*] NVIDIA GPU detected: $GPU_NAME"
 
-# Determine if a working NVIDIA driver is already installed
-NVIDIA_DRIVER=$(pacman -Qq | grep -E '^nvidia-(dkms|open-dkms|utils)$' | head -n1 || true)
+# nvidia-utils ships with every driver branch chwd picks (open, proprietary,
+# or a legacy series such as 580xx), so it is the reliable "a driver is
+# installed" signal.
+NVIDIA_UTILS=$(pacman -Qq | grep -E '^nvidia(-[0-9]+xx)?-utils$' | head -n1 || true)
 
-if [[ -n "$NVIDIA_DRIVER" ]]; then
-    DRIVER_VERSION=$(pacman -Q "$NVIDIA_DRIVER" 2>/dev/null | awk '{print $2}')
-    echo "[*] Active NVIDIA driver found: $NVIDIA_DRIVER $DRIVER_VERSION"
+if [[ -n "$NVIDIA_UTILS" ]]; then
+    echo "[*] Active NVIDIA driver found: $(pacman -Q "$NVIDIA_UTILS")"
     echo "[*] Respecting existing CachyOS driver installation."
 else
-    echo "[!] No NVIDIA driver detected — installing via chwd..."
-    sudo chwd -a
+    echo "[!] No NVIDIA driver detected - installing via chwd..."
+    chwd -a
     echo "[*] Driver installed via CachyOS hardware detection."
 fi
 
-# Ensure VA-API utils are present for hardware video acceleration
-sudo pacman -S --needed --noconfirm libva-utils
+# VA-API tools for checking hardware video decode (vainfo).
+pacman -S --needed --noconfirm libva-utils
 
-# Apply NVIDIA environment variables for UWSM/Hyprland
-mkdir -p "$HOME/.config/uwsm"
-if ! grep -q "GBM_BACKEND=nvidia-drm" "$HOME/.config/uwsm/env" 2>/dev/null; then
-    cat >>"$HOME/.config/uwsm/env" <<'EOF'
-
-# NVIDIA
-export LIBVA_DRIVER_NAME=nvidia
-export GBM_BACKEND=nvidia-drm
-export __GLX_VENDOR_LIBRARY_NAME=nvidia
-export NVD_BACKEND=direct
-export MOZ_DISABLE_RDD_SANDBOX=1
-export CUDA_DISABLE_PERF_BOOST=1
+# Early KMS, as upstream's nvidia.sh configures it. Omarchy's own mkinitcpio
+# drop-in (omarchy_hooks.conf) keys off nvidia_drm in MODULES to decide whether
+# the kms hook can be dropped.
+mkdir -p /etc/modprobe.d
+cat > /etc/modprobe.d/nvidia.conf <<'EOF'
+options nvidia_drm modeset=1
 EOF
-    echo "[*] NVIDIA environment variables written to ~/.config/uwsm/env"
-else
-    echo "[*] NVIDIA environment variables already present."
-fi
+
+mkdir -p /etc/mkinitcpio.conf.d
+cat > /etc/mkinitcpio.conf.d/nvidia.conf <<'EOF'
+MODULES+=(nvidia nvidia_modeset nvidia_uvm nvidia_drm)
+EOF
 
 echo "[*] NVIDIA configuration complete."
